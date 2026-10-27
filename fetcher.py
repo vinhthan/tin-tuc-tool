@@ -6,6 +6,8 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
+from translate import translate_to_vietnamese
+
 REQUEST_TIMEOUT = 10
 USER_AGENT = "Mozilla/5.0 (compatible; tin-tuc-tool/1.0; +https://github.com/vinhthan/tin-tuc-tool)"
 
@@ -20,7 +22,46 @@ FEEDS = [
     {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/thoi-su.rss", "section": "vietnam"},
 ]
 
+ENGLISH_SOURCES = {"Al Jazeera", "France24", "BBC World", "Sky News World"}
+
 IMG_TAG_RE = re.compile(r'<img[^>]+src="([^"]+)"')
+
+CONFLICT_KEYWORDS = [
+    "war", "warfare", "attack", "attacked", "strike", "strikes", "airstrike",
+    "air strike", "missile", "missiles", "rocket", "bomb", "bombing", "bombed",
+    "explosion", "explode", "shell", "shelling", "kill", "killed", "killing",
+    "dead", "death", "deaths", "casualt", "wounded", "injured", "troops",
+    "military", "invasion", "invade", "offensive", "ceasefire", "truce",
+    "conflict", "clash", "clashes", "shoot", "shooting", "shot", "gunfire",
+    "assault", "terror", "terrorist", "hostage", "hostages", "nuclear",
+    "coup", "uprising", "rebel", "rebels", "insurgent", "genocide", "massacre",
+    "siege", "blockade", "drone strike", "artillery", "soldier", "soldiers",
+    "warplane", "warship", "evacuate", "evacuation", "refugee", "refugees",
+    "crisis", "sanctions", "nguy cơ", "escalation",
+    "chiến tranh", "chiến sự", "tấn công", "tên lửa", "rốc két", "bom",
+    "đánh bom", "nổ", "giết", "chết", "tử vong", "thương vong", "bị thương",
+    "quân đội", "xung đột", "đụng độ", "nổ súng", "bạo loạn", "khủng bố",
+    "con tin", "hạt nhân", "đảo chính", "nổi dậy", "phiến quân", "diệt chủng",
+    "thảm sát", "bao vây", "pháo kích", "binh sĩ", "sơ tán", "tị nạn",
+    "khủng hoảng", "trừng phạt", "leo thang", "ngừng bắn", "xâm lược",
+]
+
+_KEYWORD_PATTERNS = [
+    (kw, re.compile(r"\b" + re.escape(kw) + r"\b", re.IGNORECASE))
+    for kw in CONFLICT_KEYWORDS
+]
+
+
+def compute_drama_score(title, summary):
+    score = 0
+    title_lower = title or ""
+    summary_lower = summary or ""
+    for _kw, pattern in _KEYWORD_PATTERNS:
+        if pattern.search(title_lower):
+            score += 3
+        if pattern.search(summary_lower):
+            score += 1
+    return score
 
 
 def _extract_image(entry):
@@ -81,19 +122,32 @@ def fetch_feed(feed):
     except Exception as exc:
         return [], str(exc)
 
+    is_english = feed["name"] in ENGLISH_SOURCES
     articles = []
     for entry in parsed.entries:
         published = _parse_published(entry)
+        title = entry.get("title", "(không có tiêu đề)").strip()
+        summary = _clean_summary(entry)
         articles.append({
-            "title": entry.get("title", "(không có tiêu đề)").strip(),
+            "title": title,
+            "summary": summary,
             "link": entry.get("link", ""),
             "image": _extract_image(entry),
-            "summary": _clean_summary(entry),
             "source": feed["name"],
             "section": feed["section"],
             "published_at": published.isoformat(),
+            "drama_score": compute_drama_score(title, summary),
+            "needs_translation": is_english,
         })
     return articles, None
+
+
+WORLD_LIMIT = 15
+VIETNAM_LIMIT = 5
+
+
+def _rank_key(article):
+    return (article["drama_score"], article["published_at"])
 
 
 def fetch_all():
@@ -106,5 +160,21 @@ def fetch_all():
             errors[feed["name"]] = error
         articles.extend(feed_articles)
 
-    articles.sort(key=lambda a: a["published_at"], reverse=True)
-    return articles, errors
+    world = sorted(
+        (a for a in articles if a["section"] == "world"),
+        key=_rank_key,
+        reverse=True,
+    )[:WORLD_LIMIT]
+    vietnam = sorted(
+        (a for a in articles if a["section"] == "vietnam"),
+        key=_rank_key,
+        reverse=True,
+    )[:VIETNAM_LIMIT]
+
+    selected = world + vietnam
+    for article in selected:
+        if article.pop("needs_translation", False):
+            article["title"] = translate_to_vietnamese(article["title"])
+            article["summary"] = translate_to_vietnamese(article["summary"])
+
+    return selected, errors
