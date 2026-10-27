@@ -38,3 +38,17 @@ def translate_to_vietnamese(text):
             print(f"[translate] failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
             return text
     return text
+
+
+SEPARATOR = "\n<<<SEP>>>\n"
+
+
+def translate_title_and_summary(title, summary):
+    """Translate both fields in a single API call to cut request count in half."""
+    if not title and not summary:
+        return title, summary
+    combined = translate_to_vietnamese(f"{title}{SEPARATOR}{summary}")
+    if SEPARATOR not in combined:
+        return translate_to_vietnamese(title), translate_to_vietnamese(summary)
+    new_title, new_summary = combined.split(SEPARATOR, 1)
+    return new_title.strip(), new_summary.strip()

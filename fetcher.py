@@ -6,7 +6,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
-from translate import translate_to_vietnamese
+from translate import translate_title_and_summary
 
 REQUEST_TIMEOUT = 10
 USER_AGENT = "Mozilla/5.0 (compatible; tin-tuc-tool/1.0; +https://github.com/vinhthan/tin-tuc-tool)"
@@ -174,7 +174,8 @@ def fetch_all():
     selected = world + vietnam
     for article in selected:
         if article.pop("needs_translation", False):
-            article["title"] = translate_to_vietnamese(article["title"])
-            article["summary"] = translate_to_vietnamese(article["summary"])
+            article["title"], article["summary"] = translate_title_and_summary(
+                article["title"], article["summary"]
+            )
 
     return selected, errors
