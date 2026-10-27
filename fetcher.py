@@ -1,3 +1,4 @@
+import html
 import re
 import time
 from datetime import datetime, timezone
@@ -126,7 +127,7 @@ def fetch_feed(feed):
     articles = []
     for entry in parsed.entries:
         published = _parse_published(entry)
-        title = entry.get("title", "(không có tiêu đề)").strip()
+        title = html.unescape(entry.get("title", "(không có tiêu đề)")).strip()
         summary = _clean_summary(entry)
         articles.append({
             "title": title,
