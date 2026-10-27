@@ -4,13 +4,15 @@ import time
 from deep_translator import MyMemoryTranslator
 from deep_translator.exceptions import TooManyRequests
 
-_translator = MyMemoryTranslator(source="en-US", target="vi-VN")
+_translator = MyMemoryTranslator(source="en-US", target="vi-VN", email="vinhtm1@fpt.com")
 
-MAX_RETRIES = 4
-RETRY_DELAY_SECONDS = 2
+MAX_RETRIES = 2
+RETRY_DELAY_SECONDS = 1
 MIN_CALL_INTERVAL_SECONDS = 1.1
+CIRCUIT_BREAKER_COOLDOWN_SECONDS = 300
 
 _last_call_at = 0.0
+_circuit_open_until = 0.0
 
 
 def _throttle():
@@ -23,7 +25,10 @@ def _throttle():
 
 
 def translate_to_vietnamese(text):
+    global _circuit_open_until
     if not text:
+        return text
+    if time.monotonic() < _circuit_open_until:
         return text
     for attempt in range(MAX_RETRIES):
         _throttle()
@@ -31,7 +36,11 @@ def translate_to_vietnamese(text):
             return _translator.translate(text)
         except TooManyRequests:
             if attempt == MAX_RETRIES - 1:
-                print("[translate] gave up after rate limiting", file=sys.stderr, flush=True)
+                _circuit_open_until = time.monotonic() + CIRCUIT_BREAKER_COOLDOWN_SECONDS
+                print(
+                    f"[translate] rate limited, pausing translation for {CIRCUIT_BREAKER_COOLDOWN_SECONDS}s",
+                    file=sys.stderr, flush=True,
+                )
                 return text
             time.sleep(RETRY_DELAY_SECONDS * (attempt + 1))
         except Exception as exc:
