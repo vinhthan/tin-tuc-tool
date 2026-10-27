@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tin tức: Chiến sự & Chính trị</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="top-bar">
+  <h1>📰 Chiến sự &amp; Chính trị</h1>
+  <div class="meta">
+    <span>Cập nhật lúc: {{ fetched_at[:16].replace('T', ' ') }} UTC</span>
+    <form class="date-picker" action="/" method="get" onchange="if(this.date.value){ window.location = '/day/' + this.date.value; }">
+      <select name="date">
+        {% for d in dates %}
+        <option value="{{ d }}" {% if d == selected_date %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  {% if errors %}
+  <div class="errors">
+    Một số nguồn không tải được: {{ errors.keys() | join(', ') }}
+  </div>
+  {% endif %}
+</header>
+
+<main>
+  <section class="section-block">
+    <h2 class="section-title world">🌍 Thế giới &amp; Chiến sự</h2>
+    <div class="card-grid">
+      {% for a in world %}
+      <a class="card" href="{{ a.link }}" target="_blank" rel="noopener">
+        {% if a.image %}
+        <img class="card-img" src="{{ a.image }}" alt="" loading="lazy">
+        {% else %}
+        <div class="card-img placeholder"></div>
+        {% endif %}
+        <div class="card-body">
+          <h3>{{ a.title }}</h3>
+          <p class="summary">{{ a.summary }}</p>
+          <div class="card-footer">
+            <span class="source">{{ a.source }}</span>
+            <span class="time">{{ a.published_at[:16].replace('T', ' ') }}</span>
+          </div>
+        </div>
+      </a>
+      {% else %}
+      <p class="empty">Chưa có tin.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="section-block">
+    <h2 class="section-title vietnam">🇻🇳 Việt Nam</h2>
+    <div class="card-grid">
+      {% for a in vietnam %}
+      <a class="card" href="{{ a.link }}" target="_blank" rel="noopener">
+        {% if a.image %}
+        <img class="card-img" src="{{ a.image }}" alt="" loading="lazy">
+        {% else %}
+        <div class="card-img placeholder"></div>
+        {% endif %}
+        <div class="card-body">
+          <h3>{{ a.title }}</h3>
+          <p class="summary">{{ a.summary }}</p>
+          <div class="card-footer">
+            <span class="source">{{ a.source }}</span>
+            <span class="time">{{ a.published_at[:16].replace('T', ' ') }}</span>
+          </div>
+        </div>
+      </a>
+      {% else %}
+      <p class="empty">Chưa có tin.</p>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+</body>
+</html>
